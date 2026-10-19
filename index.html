@@ -598,6 +598,7 @@ function update() {
       tb.appendChild(d);
     });
   }
+  centerName();
 }
 
 function generateImageLegacy() {
@@ -650,6 +651,30 @@ function generateImageLegacy() {
 
 
 // ── Centra otticamente le scritte in maiuscolo nelle fasce (solo padding, come il testo normale) ──
+function centerName() {
+  var el = document.getElementById('p-name');
+  var header = el && el.parentElement;
+  if (!header || !header.offsetHeight) return;
+  var cs = getComputedStyle(el), fs = parseFloat(cs.fontSize);
+  var ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = cs.fontWeight + ' 100px ' + cs.fontFamily;
+  var capH = ctx.measureText('H').actualBoundingBoxAscent / 100 * fs;
+  if (!isFinite(capH) || capH <= 0) return;
+  el.style.position = 'relative';
+  el.style.top = '0px';
+  var probe = document.createElement('span');
+  probe.style.cssText = 'display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline;';
+  el.insertBefore(probe, el.firstChild);
+  var card = document.getElementById('card').getBoundingClientRect();
+  var k = (card.width / document.getElementById('card').offsetWidth) || 1;
+  var hr = header.getBoundingClientRect();
+  var center = (Math.max(hr.top, card.top) + hr.bottom - k) / 2;
+  var base = probe.getBoundingClientRect().bottom;
+  el.removeChild(probe);
+  var shift = (center + capH * k / 2 - base) / k;
+  el.style.top = Math.round(shift) + 'px';
+}
+
 function centerCaps() {
   var ctx = document.createElement('canvas').getContext('2d');
   // [selettore, altezza della fascia in cui il testo va centrato]
@@ -677,8 +702,8 @@ function centerCaps() {
   });
 }
 if (document.fonts) {
-  document.fonts.load("700 8.5px Cinzel").then(centerCaps);
-  document.fonts.ready.then(centerCaps);
+  document.fonts.load("700 8.5px Cinzel").then(function(){ centerCaps(); centerName(); });
+  document.fonts.ready.then(function(){ centerCaps(); centerName(); });
 }
 
 // ── Anteprima: si riduce da sola se lo schermo è più stretto della carta ──
@@ -747,13 +772,26 @@ function collectTextRuns(wrapper) {
       var cr = clipEl.getBoundingClientRect();
       clip = { x: (cr.left - wr.left) / k, y: (cr.top - wr.top) / k, w: cr.width / k, h: cr.height / k };
     }
+    var centerY = null;
+    if (sel !== '#p-cost') {
+      var cardEl = wrapper.querySelector('.card').getBoundingClientRect();
+      var boxEl = (sel === '#p-name') ? wrapper.querySelector('.c-header')
+                : (sel === '.c-divider-text') ? el
+                : wrapper.querySelector('.c-footer');
+      var br = boxEl.getBoundingClientRect();
+      var top = (sel === '#p-name') ? Math.max(br.top, cardEl.top) : br.top;
+      var bottom = (sel === '#p-name') ? br.bottom - k : br.bottom; // il filetto dorato sotto il titolo non fa parte dello spazio
+      centerY = ((top + bottom) / 2 - wr.top) / k;
+    }
     var nodes = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), n;
     while ((n = walker.nextNode())) { if (n.nodeValue.trim()) nodes.push(n); }
     var pending = [];
     nodes.forEach(function(node) {
       var cs = getComputedStyle(node.parentNode);
       var item = {
-        node: node, clip: clip, color: cs.color,
+        node: node, clip: clip, color: cs.color, centerY: centerY,
+        fs: parseFloat(cs.fontSize),
+        fontBig: cs.fontStyle + ' ' + cs.fontWeight + ' 100px ' + cs.fontFamily,
         font: cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily,
         ls: (cs.letterSpacing && cs.letterSpacing !== 'normal') ? parseFloat(cs.letterSpacing) : 0,
         words: []
@@ -792,6 +830,13 @@ function drawTextRuns(ctx, runs, scale) {
   ctx.textAlign = 'left';
   var native = ('letterSpacing' in ctx);
   runs.forEach(function(run) {
+    if (run.centerY != null) {
+      // centro ottico: le maiuscole vengono centrate esattamente nella fascia
+      ctx.save(); ctx.font = run.fontBig;
+      var capH = ctx.measureText('H').actualBoundingBoxAscent / 100 * run.fs;
+      ctx.restore();
+      if (isFinite(capH) && capH > 0) run.words.forEach(function(w) { w.base = run.centerY + capH / 2; });
+    }
     ctx.save();
     if (run.clip) { ctx.beginPath(); ctx.rect(run.clip.x, run.clip.y, run.clip.w, run.clip.h); ctx.clip(); }
     ctx.font = run.font;
@@ -813,7 +858,10 @@ function drawTextRuns(ctx, runs, scale) {
 function loadRunFonts(runs) {
   if (!document.fonts || !document.fonts.load) return Promise.resolve();
   return Promise.all(runs.map(function(r) {
-    return document.fonts.load(r.font, r.words.map(function(w) { return w.t; }).join(' ')).catch(function() {});
+    return Promise.all([
+      document.fonts.load(r.font, r.words.map(function(w) { return w.t; }).join(' ')).catch(function() {}),
+      document.fonts.load(r.fontBig, 'H').catch(function() {})
+    ]);
   }));
 }
 
@@ -882,7 +930,7 @@ function generateImage() {
   var cardName = document.getElementById('f-name').value || 'carta';
   var safe = cardName.replace(/[^a-zA-Z0-9À-ÿ\s]/g,'').trim().replace(/\s+/g,'_') || 'carta';
   var original = (cardType === 'back') ? document.getElementById('back-wrapper') : document.getElementById('card-wrapper');
-  centerCaps();
+  centerCaps(); centerName();
   renderNative(original, 4).then(function(canvas) {
     canvas.toBlob(function(blob) {
       loading.classList.remove('show');
