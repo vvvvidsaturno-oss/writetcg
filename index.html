@@ -119,11 +119,11 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .ab:last-child { margin-bottom:0; }
 .ab+.ab { padding-top:5px; border-top:1px solid rgba(166,120,32,0.25); }
 .ab-name { font-style:italic; font-weight:700; }
-.c-footer { flex-shrink:0; height:16px; margin:0; position:relative; z-index:2; background:rgba(18,9,1,0.88); font-family:'Cinzel',serif; font-weight:700; font-size:8.5px; letter-spacing:0.04em; color:#fff3cf; line-height:16px; white-space:nowrap; overflow:hidden; }
-.c-footer span { position:absolute; top:0; height:16px; line-height:16px; max-width:48%; overflow:hidden; }
+.c-footer { flex-shrink:0; height:16px; margin:0; padding:0 12px; display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:2; background:rgba(18,9,1,0.88); font-family:'Cinzel',serif; font-weight:700; font-size:8.5px; letter-spacing:0.04em; color:#fff3cf; line-height:12px; white-space:nowrap; overflow:hidden; }
+.c-footer span { display:block; height:12px; line-height:12px; max-width:48%; overflow:hidden; }
 .c-footer b { font-weight:700; color:#e6bd55; }
-#p-author { left:12px; text-align:left; }
-#p-illus { right:12px; text-align:right; }
+#p-author { text-align:left; }
+#p-illus { text-align:right; }
 .back-sub { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.5em; color:#8b6914; position:relative; z-index:1; text-transform:uppercase; margin-top:-4px; }
 
 .card.back {
@@ -649,22 +649,50 @@ function generateImageLegacy() {
 }
 
 
-// ── Centra otticamente le scritte in maiuscolo nelle fasce (calcolo dalle misure del font) ──
+// ── Centra otticamente le scritte in maiuscolo nelle fasce (solo padding, come il testo normale) ──
 function centerCaps() {
   var ctx = document.createElement('canvas').getContext('2d');
-  document.querySelectorAll('.c-divider-text, #p-author, #p-illus').forEach(function(el) {
-    var cs = getComputedStyle(el);
-    ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-    var m = ctx.measureText('H');
-    if (m.fontBoundingBoxAscent == null || m.actualBoundingBoxAscent == null) return;
-    var shift = (m.actualBoundingBoxAscent + m.fontBoundingBoxDescent - m.fontBoundingBoxAscent) / 2;
-    if (isFinite(shift)) el.style.transform = 'translateY(' + shift.toFixed(2) + 'px)';
+  // [selettore, altezza fascia, altezza riga]
+  [['.c-divider-text', 12, 12], ['.c-footer', 16, 12]].forEach(function(t) {
+    document.querySelectorAll(t[0]).forEach(function(el) {
+      var cs = getComputedStyle(el);
+      var fs = parseFloat(cs.fontSize);
+      // altezza delle maiuscole misurata a corpo 100 (più precisa), poi riportata al corpo reale
+      ctx.font = cs.fontWeight + ' 100px ' + cs.fontFamily;
+      var big = ctx.measureText('H');
+      ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      var m = ctx.measureText('H');
+      if (m.fontBoundingBoxAscent == null || big.actualBoundingBoxAscent == null) return;
+      var capH = big.actualBoundingBoxAscent / 100 * fs;
+      // il browser arrotonda ascendente/discendente e il mezzo-interlinea: faccio lo stesso
+      var asc = Math.round(m.fontBoundingBoxAscent), desc = Math.round(m.fontBoundingBoxDescent);
+      var baseline = asc + Math.floor((t[2] - (asc + desc)) / 2);
+      var pad = Math.round(t[1] / 2 - (baseline - capH / 2));
+      if (isFinite(pad)) el.style.paddingTop = Math.max(0, pad) + 'px';
+    });
   });
 }
 if (document.fonts) {
   document.fonts.load("700 8.5px Cinzel").then(centerCaps);
   document.fonts.ready.then(centerCaps);
 }
+
+// ── Anteprima: si riduce da sola se lo schermo è più stretto della carta ──
+function fitPreview() {
+  var area = document.querySelector('.preview-area');
+  if (!area) return;
+  area.style.transform = '';
+  area.style.marginBottom = '';
+  var w = document.getElementById('card-wrapper').offsetWidth || 361;
+  var s = Math.min(1, (window.innerWidth - 12) / w);
+  if (s < 1) {
+    area.style.transformOrigin = 'top center';
+    area.style.transform = 'scale(' + s.toFixed(4) + ')';
+    area.style.marginBottom = (-(area.offsetHeight * (1 - s))).toFixed(1) + 'px';
+  }
+}
+window.addEventListener('resize', fitPreview);
+window.addEventListener('load', fitPreview);
 
 // ── Esportazione: usa il motore del browser (testo identico all'anteprima) ──
 var fontCssCache = null;
@@ -700,6 +728,7 @@ function renderNative(original, scale) {
     var W = original.offsetWidth, H = original.offsetHeight;
     var clone = original.cloneNode(true);
     clone.style.boxShadow = 'none';
+    return Promise.all(Array.prototype.map.call(clone.querySelectorAll('img'), shrinkImg)).then(function() {
     var outer = document.createElement('div');
     outer.style.cssText = 'display:flex;width:' + W + 'px;height:' + H + 'px;overflow:hidden;';
     var st = document.createElement('style');
@@ -724,6 +753,25 @@ function renderNative(original, scale) {
       img.onerror = function() { rej(new Error('rendering svg')); };
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     });
+    });
+  });
+}
+
+function shrinkImg(img) {
+  return new Promise(function(res) {
+    var src = img.getAttribute('src') || '';
+    if (src.length < 1500000) return res();
+    var im = new Image();
+    im.onload = function() {
+      var k = Math.min(1, 2400 / Math.max(im.naturalWidth, im.naturalHeight));
+      var c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      img.setAttribute('src', c.toDataURL('image/jpeg', 0.92));
+      res();
+    };
+    im.onerror = function() { res(); };
+    im.src = src;
   });
 }
 
@@ -751,6 +799,7 @@ function generateImage() {
     }, 'image/png');
   }).catch(function(err) {
     console.warn('Esportazione nativa non riuscita, uso il metodo di riserva:', err);
+    alert('Esportazione avanzata non riuscita (' + ((err && err.message) || err) + '). Uso il metodo di riserva: le scritte potrebbero risultare spostate.');
     generateImageLegacy();
   });
 }
@@ -769,8 +818,9 @@ document.getElementById('p-fullart').addEventListener('load', applyArtTransform)
   });
   wrap.addEventListener('pointermove', function(e) {
     if (!drag) return;
-    art.x = Math.round(drag.ax + e.clientX - drag.x);
-    art.y = Math.round(drag.ay + e.clientY - drag.y);
+    var k = (document.getElementById('card').getBoundingClientRect().width / document.getElementById('card').offsetWidth) || 1;
+    art.x = Math.round(drag.ax + (e.clientX - drag.x) / k);
+    art.y = Math.round(drag.ay + (e.clientY - drag.y) / k);
     applyArtTransform();
   });
   ['pointerup', 'pointercancel'].forEach(function(ev) {
