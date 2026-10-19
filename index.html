@@ -120,7 +120,7 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .ab+.ab { padding-top:5px; border-top:1px solid rgba(166,120,32,0.25); }
 .ab-name { font-style:italic; font-weight:700; }
 .c-footer { flex-shrink:0; height:16px; margin:0; padding:0 12px; display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:2; background:rgba(18,9,1,0.88); font-family:'Cinzel',serif; font-weight:700; font-size:8.5px; letter-spacing:0.04em; color:#fff3cf; line-height:12px; white-space:nowrap; overflow:hidden; }
-.c-footer span { display:block; height:12px; line-height:12px; max-width:48%; overflow:hidden; }
+.c-footer span { display:block; height:16px; line-height:12px; max-width:48%; overflow:hidden; }
 .c-footer b { font-weight:700; color:#e6bd55; }
 #p-author { text-align:left; }
 #p-illus { text-align:right; }
@@ -652,22 +652,26 @@ function generateImageLegacy() {
 // ── Centra otticamente le scritte in maiuscolo nelle fasce (solo padding, come il testo normale) ──
 function centerCaps() {
   var ctx = document.createElement('canvas').getContext('2d');
-  // [selettore, altezza fascia, altezza riga]
-  [['.c-divider-text', 12, 12], ['.c-footer', 16, 12]].forEach(function(t) {
+  // [selettore, altezza della fascia in cui il testo va centrato]
+  [['.c-divider-text', 12], ['.c-footer span', 16]].forEach(function(t) {
     document.querySelectorAll(t[0]).forEach(function(el) {
+      if (!el.offsetHeight) return; // nascosto (es. retro della carta)
       var cs = getComputedStyle(el);
       var fs = parseFloat(cs.fontSize);
-      // altezza delle maiuscole misurata a corpo 100 (più precisa), poi riportata al corpo reale
+      // altezza delle maiuscole del font reale
       ctx.font = cs.fontWeight + ' 100px ' + cs.fontFamily;
-      var big = ctx.measureText('H');
-      ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-      var m = ctx.measureText('H');
-      if (m.fontBoundingBoxAscent == null || big.actualBoundingBoxAscent == null) return;
-      var capH = big.actualBoundingBoxAscent / 100 * fs;
-      // il browser arrotonda ascendente/discendente e il mezzo-interlinea: faccio lo stesso
-      var asc = Math.round(m.fontBoundingBoxAscent), desc = Math.round(m.fontBoundingBoxDescent);
-      var baseline = asc + Math.floor((t[2] - (asc + desc)) / 2);
-      var pad = Math.round(t[1] / 2 - (baseline - capH / 2));
+      var capH = ctx.measureText('H').actualBoundingBoxAscent / 100 * fs;
+      if (!isFinite(capH) || capH <= 0) return;
+      // linea di base reale misurata nella pagina (senza stime sulle metriche del font)
+      el.style.paddingTop = '0px';
+      var probe = document.createElement('span');
+      probe.style.cssText = 'display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline;';
+      el.insertBefore(probe, el.firstChild);
+      var k = (el.getBoundingClientRect().height / el.offsetHeight) || 1;
+      var base = (probe.getBoundingClientRect().bottom - el.getBoundingClientRect().top) / k;
+      el.removeChild(probe);
+      // le maiuscole occupano da (base - capH) a base: porto il loro centro a metà fascia
+      var pad = Math.round(t[1] / 2 - (base - capH / 2));
       if (isFinite(pad)) el.style.paddingTop = Math.max(0, pad) + 'px';
     });
   });
