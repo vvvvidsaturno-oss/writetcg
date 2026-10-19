@@ -94,7 +94,7 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 
 .c-header { flex-shrink:0; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:36px; margin-top:-2px; padding-top:2px; display:flex; align-items:center; justify-content:center; padding-left:11px; padding-right:11px; overflow:hidden; }
 #p-name { padding-left:0.07em; font-family:'Cinzel',serif; font-weight:600; color:#e8d090; letter-spacing:0.07em; text-align:center; white-space:nowrap; line-height:1; }
-.c-image { flex-shrink:0; margin:7px 10px 0; height:216px; overflow:hidden; background:#2c1a08; border:1px solid #a67820; position:relative; }
+.c-image { flex-shrink:0; margin:7px 10px 0; height:213px; overflow:hidden; background:#2c1a08; border:1px solid #a67820; position:relative; }
 .c-image img { width:100%; height:100%; object-fit:cover; display:block; position:absolute; top:50%; left:50%; transform-origin:center center; }
 .c-image { position:relative; overflow:hidden; }
 #img-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#a67820; font-family:'IM Fell English',serif; font-style:italic; font-size:11px; opacity:0.5; letter-spacing:3px; }
@@ -109,7 +109,8 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .c-divider { flex-shrink:0; margin:5px 10px 0; display:flex; align-items:center; gap:5px; line-height:1; }
 .c-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(18,9,1,0.85)); }
 .c-divider-line:last-child { background:linear-gradient(270deg,transparent,rgba(18,9,1,0.85)); }
-.c-divider-text { display:block; height:11px; line-height:11px; padding:1px calc(7px - 0.18em) 0 7px; font-family:'Cinzel',serif; font-weight:700; font-size:7.5px; letter-spacing:0.18em; color:#f5e2a8; background:rgba(18,9,1,0.88); border-radius:2px; white-space:nowrap; }
+.c-divider-text { display:block; height:12px; line-height:12px; padding:0 calc(7px - 0.04em) 0 7px; font-family:'Cinzel',serif; font-weight:700; font-size:8.5px; letter-spacing:0.04em; color:#fff3cf; background:rgba(18,9,1,0.88); border-radius:2px; white-space:nowrap; }
+.c-divider-text b { font-weight:700; color:#e6bd55; }
 .c-divider-glyph { font-size:9px; color:#a67820; opacity:0.6; line-height:1; display:flex; align-items:center; }
 .c-spacer-bottom { flex:1; min-height:0; }
 .c-textbox { flex:none; height:150px; margin:4px 10px 0; padding:6px 8px; border:1px solid rgba(166,120,32,0.35); background:rgba(252,243,224,0.55); overflow:hidden; }
@@ -341,7 +342,7 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
         <div class="c-stat off" id="p-off-badge"><span class="c-stat-label">Off</span><span class="c-stat-value" id="p-off">—</span></div>
         <div class="c-stat def" id="p-def-badge"><span class="c-stat-label">Dif</span><span class="c-stat-value" id="p-def">—</span></div>
       </div>
-      <div class="c-divider"><div class="c-divider-line"></div><span class="c-divider-text">WRITE TRADING CARD GAME</span><div class="c-divider-line"></div></div>
+      <div class="c-divider"><div class="c-divider-line"></div><span class="c-divider-text"><b>WRITE</b> Trading Card Game</span><div class="c-divider-line"></div></div>
       <div class="c-textbox"><div id="p-textbox"></div></div>
       <div class="c-footer"><span id="p-author"></span><span id="p-illus"></span></div>
     </div>
@@ -648,6 +649,23 @@ function generateImageLegacy() {
 }
 
 
+// ── Centra otticamente le scritte in maiuscolo nelle fasce (calcolo dalle misure del font) ──
+function centerCaps() {
+  var ctx = document.createElement('canvas').getContext('2d');
+  document.querySelectorAll('.c-divider-text, #p-author, #p-illus').forEach(function(el) {
+    var cs = getComputedStyle(el);
+    ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    var m = ctx.measureText('H');
+    if (m.fontBoundingBoxAscent == null || m.actualBoundingBoxAscent == null) return;
+    var shift = (m.actualBoundingBoxAscent + m.fontBoundingBoxDescent - m.fontBoundingBoxAscent) / 2;
+    if (isFinite(shift)) el.style.transform = 'translateY(' + shift.toFixed(2) + 'px)';
+  });
+}
+if (document.fonts) {
+  document.fonts.load("700 8.5px Cinzel").then(centerCaps);
+  document.fonts.ready.then(centerCaps);
+}
+
 // ── Esportazione: usa il motore del browser (testo identico all'anteprima) ──
 var fontCssCache = null;
 function getEmbeddedFontCss() {
@@ -717,6 +735,7 @@ function generateImage() {
   var cardName = document.getElementById('f-name').value || 'carta';
   var safe = cardName.replace(/[^a-zA-Z0-9À-ÿ\s]/g,'').trim().replace(/\s+/g,'_') || 'carta';
   var original = (cardType === 'back') ? document.getElementById('back-wrapper') : document.getElementById('card-wrapper');
+  centerCaps();
   renderNative(original, 4).then(function(canvas) {
     canvas.toBlob(function(blob) {
       loading.classList.remove('show');
