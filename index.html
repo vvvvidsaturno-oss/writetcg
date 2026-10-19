@@ -93,7 +93,7 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .card.ambientazione .c-header { position:relative; z-index:2; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:36px; margin-top:-2px; padding-top:2px; }
 
 .c-header { flex-shrink:0; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:36px; margin-top:-2px; padding-top:2px; display:flex; align-items:center; justify-content:center; padding-left:11px; padding-right:11px; overflow:hidden; }
-#p-name { font-family:'Cinzel',serif; font-weight:600; color:#e8d090; letter-spacing:0.07em; text-align:center; white-space:nowrap; line-height:1; }
+#p-name { padding-left:0.07em; font-family:'Cinzel',serif; font-weight:600; color:#e8d090; letter-spacing:0.07em; text-align:center; white-space:nowrap; line-height:1; }
 .c-image { flex-shrink:0; margin:7px 10px 0; height:216px; overflow:hidden; background:#2c1a08; border:1px solid #a67820; position:relative; }
 .c-image img { width:100%; height:100%; object-fit:cover; display:block; position:absolute; top:50%; left:50%; transform-origin:center center; }
 .c-image { position:relative; overflow:hidden; }
@@ -109,7 +109,7 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .c-divider { flex-shrink:0; margin:5px 10px 0; display:flex; align-items:center; gap:5px; line-height:1; }
 .c-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(18,9,1,0.85)); }
 .c-divider-line:last-child { background:linear-gradient(270deg,transparent,rgba(18,9,1,0.85)); }
-.c-divider-text { display:block; height:11px; line-height:11px; padding:0 7px; font-family:'Cinzel',serif; font-weight:700; font-size:7.5px; letter-spacing:0.18em; color:#f5e2a8; background:rgba(18,9,1,0.88); border-radius:2px; white-space:nowrap; }
+.c-divider-text { display:block; height:11px; line-height:11px; padding:1px calc(7px - 0.18em) 0 7px; font-family:'Cinzel',serif; font-weight:700; font-size:7.5px; letter-spacing:0.18em; color:#f5e2a8; background:rgba(18,9,1,0.88); border-radius:2px; white-space:nowrap; }
 .c-divider-glyph { font-size:9px; color:#a67820; opacity:0.6; line-height:1; display:flex; align-items:center; }
 .c-spacer-bottom { flex:1; min-height:0; }
 .c-textbox { flex:none; height:150px; margin:4px 10px 0; padding:6px 8px; border:1px solid rgba(166,120,32,0.35); background:rgba(252,243,224,0.55); overflow:hidden; }
@@ -599,7 +599,7 @@ function update() {
   }
 }
 
-function generateImage() {
+function generateImageLegacy() {
   var btn     = document.getElementById('gen-btn');
   var loading = document.getElementById('loading');
   btn.disabled = true;
@@ -644,6 +644,95 @@ function generateImage() {
       btn.disabled = false;
       alert('Errore: ' + e.message);
     });
+  });
+}
+
+
+// ── Esportazione: usa il motore del browser (testo identico all'anteprima) ──
+var fontCssCache = null;
+function getEmbeddedFontCss() {
+  if (fontCssCache) return fontCssCache;
+  var link = document.querySelector('link[href*="fonts.googleapis.com"]');
+  if (!link) return Promise.reject(new Error('font link mancante'));
+  fontCssCache = fetch(link.href).then(function(r) {
+    if (!r.ok) throw new Error('css font');
+    return r.text();
+  }).then(function(css) {
+    var blocks = css.match(/\/\*[^*]*\*\/\s*@font-face\s*\{[^}]*\}/g) || [];
+    var latin = blocks.filter(function(b) { return /\/\*\s*latin\s*\*\//.test(b); });
+    return Promise.all(latin.map(function(b) {
+      var m = b.match(/url\(["']?(https:[^)"']+)["']?\)/);
+      if (!m) return b;
+      return fetch(m[1]).then(function(r) { return r.blob(); }).then(function(blob) {
+        return new Promise(function(res, rej) {
+          var fr = new FileReader();
+          fr.onload = function() { res(fr.result); };
+          fr.onerror = rej;
+          fr.readAsDataURL(blob);
+        });
+      }).then(function(d) { return b.replace(m[1], d); });
+    }));
+  }).then(function(arr) { return arr.join('\n'); });
+  fontCssCache.catch(function() { fontCssCache = null; });
+  return fontCssCache;
+}
+
+function renderNative(original, scale) {
+  return getEmbeddedFontCss().then(function(fontCss) {
+    var W = original.offsetWidth, H = original.offsetHeight;
+    var clone = original.cloneNode(true);
+    clone.style.boxShadow = 'none';
+    var outer = document.createElement('div');
+    outer.style.cssText = 'display:flex;width:' + W + 'px;height:' + H + 'px;overflow:hidden;';
+    var st = document.createElement('style');
+    var pageCss = Array.prototype.map.call(document.querySelectorAll('style'), function(x) { return x.textContent; }).join('\n');
+    st.textContent = fontCss + '\n' + pageCss;
+    outer.appendChild(st);
+    outer.appendChild(clone);
+    var xml = new XMLSerializer().serializeToString(outer);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
+              '<foreignObject x="0" y="0" width="100%" height="100%">' + xml + '</foreignObject></svg>';
+    return new Promise(function(res, rej) {
+      var img = new Image();
+      img.onload = function() {
+        try {
+          var canvas = document.createElement('canvas');
+          canvas.width = W * scale; canvas.height = H * scale;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, W * scale, H * scale);
+          res(canvas);
+        } catch (e) { rej(e); }
+      };
+      img.onerror = function() { rej(new Error('rendering svg')); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+  });
+}
+
+function generateImage() {
+  var btn     = document.getElementById('gen-btn');
+  var loading = document.getElementById('loading');
+  btn.disabled = true;
+  loading.classList.add('show');
+  var cardName = document.getElementById('f-name').value || 'carta';
+  var safe = cardName.replace(/[^a-zA-Z0-9À-ÿ\s]/g,'').trim().replace(/\s+/g,'_') || 'carta';
+  var original = (cardType === 'back') ? document.getElementById('back-wrapper') : document.getElementById('card-wrapper');
+  renderNative(original, 4).then(function(canvas) {
+    canvas.toBlob(function(blob) {
+      loading.classList.remove('show');
+      btn.disabled = false;
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'write_tcg_' + safe + '.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+    }, 'image/png');
+  }).catch(function(err) {
+    console.warn('Esportazione nativa non riuscita, uso il metodo di riserva:', err);
+    generateImageLegacy();
   });
 }
 
