@@ -431,7 +431,7 @@ window.addEventListener('appinstalled', function() {
 function artAdj(key, delta) {
   art[key] = Math.round((art[key] + delta) * 100) / 100;
   if (key === 'scale') {
-    art.scale = Math.max(0.5, Math.min(3, art.scale));
+    art.scale = Math.max(0.3, Math.min(4, art.scale));
     document.getElementById('v-scale').textContent = art.scale.toFixed(2) + '×';
   }
   applyArtTransform();
@@ -441,10 +441,34 @@ function artReset() {
   document.getElementById('v-scale').textContent = '1.00×';
   applyArtTransform();
 }
+function artGeom(img, box) {
+  var iw = img.naturalWidth, ih = img.naturalHeight;
+  var cw = box.clientWidth,  ch = box.clientHeight;
+  if (!iw || !ih || !cw || !ch) return null;
+  var base = Math.max((cw + 2) / iw, (ch + 2) / ih);
+  var sc = base * art.scale;
+  var dw = Math.ceil(iw * sc), dh = Math.ceil(ih * sc);
+  return { dw: dw, dh: dh,
+           left: Math.round((cw - dw) / 2 + art.x),
+           top:  Math.round((ch - dh) / 2 + art.y) };
+}
 function applyArtTransform() {
-  var imgs = document.querySelectorAll('.c-image img, #p-fullart');
-  imgs.forEach(function(img) {
-    img.style.transform = 'translate(calc(-50% + ' + art.x + 'px), calc(-50% + ' + art.y + 'px)) scale(' + art.scale + ')';
+  [['p-img','c-image-wrap'], ['p-fullart','card']].forEach(function(p) {
+    var img = document.getElementById(p[0]);
+    var box = document.getElementById(p[1]);
+    var g = artGeom(img, box);
+    if (!g) return;
+    img.style.transform = 'none';
+    img.style.objectFit = 'fill';
+    img.style.position  = 'absolute';
+    img.style.minWidth  = '0';
+    img.style.minHeight = '0';
+    img.style.maxWidth  = 'none';
+    img.style.maxHeight = 'none';
+    img.style.width  = g.dw + 'px';
+    img.style.height = g.dh + 'px';
+    img.style.left   = g.left + 'px';
+    img.style.top    = g.top + 'px';
   });
 }
 function adj(key, delta) {
@@ -487,6 +511,7 @@ function setType(t) {
   document.getElementById('c-image-wrap').style.display   = '';
   document.getElementById('c-spacer').style.display       = (t==='cs' || t==='amb') ? '' : 'none';
   document.getElementById('c-spacer-normal').style.display = '';
+  applyArtTransform();
   document.getElementById('p-fullart').style.display      = ((t==='cs' || t==='amb') && loadedImageDataUrl) ? 'block' : 'none';
   if (loadedImageDataUrl) {
     document.getElementById('p-img').style.display = 'block';
@@ -509,6 +534,8 @@ function loadImg(e) {
     document.getElementById('img-btn-txt').textContent = '✓ ' + f.name;
     artReset();
     document.getElementById('artwork-controls').style.display = '';
+    document.getElementById('c-image-wrap').style.touchAction = 'none';
+    document.getElementById('c-image-wrap').style.cursor = 'grab';
   };
   r.readAsDataURL(f);
 }
@@ -593,35 +620,6 @@ function generateImage() {
   ].join(';');
   container.appendChild(clone);
   document.body.appendChild(container);
-  if (loadedImageDataUrl) {
-    var cloneImgs = clone.querySelectorAll('.c-image img, .c-fullart');
-    cloneImgs.forEach(function(cloneImg) {
-      var origId = cloneImg.id;
-      var origImg = document.getElementById(origId);
-      if (!origImg || origImg.style.display === 'none') return;
-      var container2 = origImg.parentElement;
-      var cw = container2.offsetWidth;
-      var ch = container2.offsetHeight;
-      var iw = origImg.naturalWidth  || cw;
-      var ih = origImg.naturalHeight || ch;
-      var baseScale = Math.max(cw / iw, ch / ih);
-      var sc   = baseScale * art.scale;
-      var dw   = iw * sc;
-      var dh   = ih * sc;
-      var left = (cw - dw) / 2 + art.x;
-      var top  = (ch - dh) / 2 + art.y;
-      cloneImg.style.transform  = 'none';
-      cloneImg.style.objectFit  = 'unset';
-      cloneImg.style.position   = 'absolute';
-      cloneImg.style.width      = dw + 'px';
-      cloneImg.style.height     = dh + 'px';
-      cloneImg.style.left       = left + 'px';
-      cloneImg.style.top        = top  + 'px';
-      cloneImg.style.maxWidth   = 'none';
-      cloneImg.style.maxHeight  = 'none';
-      cloneImg.style.display    = 'block';
-    });
-  }
   document.fonts.ready.then(function() {
     html2canvas(clone, {
       scale: 4, useCORS: true, allowTaint: true,
@@ -648,6 +646,29 @@ function generateImage() {
     });
   });
 }
+
+document.getElementById('p-img').addEventListener('load', applyArtTransform);
+document.getElementById('p-fullart').addEventListener('load', applyArtTransform);
+
+// Trascina l'immagine con il dito o con il mouse
+(function() {
+  var wrap = document.getElementById('c-image-wrap');
+  var drag = null;
+  wrap.addEventListener('pointerdown', function(e) {
+    if (!loadedImageDataUrl) return;
+    drag = { x: e.clientX, y: e.clientY, ax: art.x, ay: art.y };
+    wrap.setPointerCapture(e.pointerId);
+  });
+  wrap.addEventListener('pointermove', function(e) {
+    if (!drag) return;
+    art.x = Math.round(drag.ax + e.clientX - drag.x);
+    art.y = Math.round(drag.ay + e.clientY - drag.y);
+    applyArtTransform();
+  });
+  ['pointerup', 'pointercancel'].forEach(function(ev) {
+    wrap.addEventListener(ev, function() { drag = null; });
+  });
+})();
 
 setType('p');
 update();
