@@ -600,6 +600,55 @@ function update() {
   }
 }
 
+function generateImageLegacy() {
+  var btn     = document.getElementById('gen-btn');
+  var loading = document.getElementById('loading');
+  btn.disabled = true;
+  loading.classList.add('show');
+  var cardName = document.getElementById('f-name').value || 'carta';
+  var safe = cardName.replace(/[^a-zA-Z0-9À-ÿ\s]/g,'').trim().replace(/\s+/g,'_') || 'carta';
+  var isBack = (cardType === 'back');
+  var original = isBack
+    ? document.getElementById('back-wrapper')
+    : document.getElementById('card-wrapper');
+  var clone = original.cloneNode(true);
+  var container = document.createElement('div');
+  container.style.cssText = [
+    'position:fixed','top:-9999px','left:-9999px',
+    'width:' + original.offsetWidth + 'px',
+    'height:' + original.offsetHeight + 'px',
+    'overflow:visible','z-index:-1','pointer-events:none'
+  ].join(';');
+  container.appendChild(clone);
+  document.body.appendChild(container);
+  document.fonts.ready.then(function() {
+    html2canvas(clone, {
+      scale: 4, useCORS: true, allowTaint: true,
+      backgroundColor: null, logging: false
+    }).then(function(canvas) {
+      document.body.removeChild(container);
+      loading.classList.remove('show');
+      btn.disabled = false;
+      canvas.toBlob(function(blob) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'write_tcg_' + safe + '.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+      }, 'image/png');
+    }).catch(function(e) {
+      document.body.removeChild(container);
+      loading.classList.remove('show');
+      btn.disabled = false;
+      alert('Errore: ' + e.message);
+    });
+  });
+}
+
+
 // ── Centra otticamente le scritte in maiuscolo nelle fasce (solo padding, come il testo normale) ──
 function centerCaps() {
   var ctx = document.createElement('canvas').getContext('2d');
@@ -645,77 +694,162 @@ function fitPreview() {
 window.addEventListener('resize', fitPreview);
 window.addEventListener('load', fitPreview);
 
-// ── Esportazione ──
-// 1) Sfondi, bordi, immagini e gocce d'inchiostro li disegna il browser (con il testo reso invisibile).
-// 2) Il testo viene poi scritto sul canvas, parola per parola, esattamente nelle posizioni misurate
-//    nell'anteprima. Così le scritte non dipendono dal metodo di esportazione, dai font né dal browser.
-
-function hideTextCss(scope) {
-  return scope + ',' + scope + ' *{color:transparent !important;-webkit-text-fill-color:transparent !important;text-shadow:none !important;}';
+// ── Esportazione: usa il motore del browser (testo identico all'anteprima) ──
+var fontCssCache = null;
+function getEmbeddedFontCss() {
+  if (fontCssCache) return fontCssCache;
+  var link = document.querySelector('link[href*="fonts.googleapis.com"]');
+  if (!link) return Promise.reject(new Error('font link mancante'));
+  fontCssCache = fetch(link.href).then(function(r) {
+    if (!r.ok) throw new Error('css font');
+    return r.text();
+  }).then(function(css) {
+    var blocks = css.match(/\/\*[^*]*\*\/\s*@font-face\s*\{[^}]*\}/g) || [];
+    var latin = blocks.filter(function(b) { return /\/\*\s*latin\s*\*\//.test(b); });
+    return Promise.all(latin.map(function(b) {
+      var m = b.match(/url\(["']?(https:[^)"']+)["']?\)/);
+      if (!m) return b;
+      return fetch(m[1]).then(function(r) { return r.blob(); }).then(function(blob) {
+        return new Promise(function(res, rej) {
+          var fr = new FileReader();
+          fr.onload = function() { res(fr.result); };
+          fr.onerror = rej;
+          fr.readAsDataURL(blob);
+        });
+      }).then(function(d) { return b.replace(m[1], d); });
+    }));
+  }).then(function(arr) { return arr.join('\n'); });
+  fontCssCache.catch(function() { fontCssCache = null; });
+  return fontCssCache;
 }
 
-function isWebKit() {
-  var ua = navigator.userAgent;
-  return /iP(hone|ad|od)/.test(ua) ||
-         (/AppleWebKit/.test(ua) && !/Chrome|Chromium|Edg|Android/.test(ua)) ||
-         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// ── Testi dell'esportazione: posizioni lette dall'anteprima e disegnate sul canvas ──
+// (così non dipendono da come il browser calcola la linea di base dentro l'SVG)
+var OVERLAY_SELECTORS = ['#p-name', '#p-cost', '.c-divider-text', '#p-author', '#p-illus'];
+
+function collectTextRuns(wrapper) {
+  var wr = wrapper.getBoundingClientRect();
+  var k = (wr.width / wrapper.offsetWidth) || 1;
+  var runs = [];
+  OVERLAY_SELECTORS.forEach(function(sel) {
+    var el = wrapper.querySelector(sel);
+    if (!el) return;
+    // area di ritaglio: il primo antenato (o l'elemento stesso) con overflow nascosto
+    var clipEl = el;
+    while (clipEl && clipEl !== wrapper && getComputedStyle(clipEl).overflow === 'visible') clipEl = clipEl.parentElement;
+    var clip = null;
+    if (clipEl && clipEl !== wrapper) {
+      var cr = clipEl.getBoundingClientRect();
+      clip = { x: (cr.left - wr.left) / k, y: (cr.top - wr.top) / k, w: cr.width / k, h: cr.height / k };
+    }
+    var nodes = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), n;
+    while ((n = walker.nextNode())) { if (n.nodeValue.trim()) nodes.push(n); }
+    var pending = [];
+    nodes.forEach(function(node) {
+      var cs = getComputedStyle(node.parentNode);
+      var item = {
+        node: node, clip: clip, color: cs.color,
+        font: cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily,
+        ls: (cs.letterSpacing && cs.letterSpacing !== 'normal') ? parseFloat(cs.letterSpacing) : 0,
+        words: []
+      };
+      var re = /\S+/g, m;
+      while ((m = re.exec(node.nodeValue))) {
+        var r = document.createRange();
+        r.setStart(node, m.index); r.setEnd(node, m.index + m[0].length);
+        var rc = r.getClientRects()[0];
+        if (!rc) continue;
+        item.words.push({ t: m[0], x: (rc.left - wr.left) / k, top: (rc.top - wr.top) / k, rawTop: rc.top });
+      }
+      if (item.words.length) pending.push(item);
+    });
+    // linea di base reale: un segnalino di dimensione zero messo prima del testo
+    pending.forEach(function(item) {
+      var probe = document.createElement('span');
+      probe.style.cssText = 'display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline;';
+      item.node.parentNode.insertBefore(probe, item.node);
+      var asc = (probe.getBoundingClientRect().bottom - item.words[0].rawTop) / k;
+      probe.parentNode.removeChild(probe);
+      // il browser appoggia la linea di base sulla griglia dei pixel: faccio lo stesso
+      var blink = /Chrome\/|Chromium\/|Edg\//.test(navigator.userAgent);
+      var grid = blink ? 1 : (window.devicePixelRatio || 1);
+      item.words.forEach(function(w) { w.base = Math.round((w.top + asc) * grid) / grid; });
+      runs.push(item);
+    });
+  });
+  return runs;
 }
 
-// Livello base con il motore nativo (SVG + foreignObject)
-function renderBaseNative(original, scale) {
-  var W = original.offsetWidth, H = original.offsetHeight;
-  var clone = original.cloneNode(true);
-  clone.style.boxShadow = 'none';
-  return Promise.all(Array.prototype.map.call(clone.querySelectorAll('img'), shrinkImg)).then(function() {
+function drawTextRuns(ctx, runs, scale) {
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  var native = ('letterSpacing' in ctx);
+  runs.forEach(function(run) {
+    ctx.save();
+    if (run.clip) { ctx.beginPath(); ctx.rect(run.clip.x, run.clip.y, run.clip.w, run.clip.h); ctx.clip(); }
+    ctx.font = run.font;
+    ctx.fillStyle = run.color;
+    if (native) ctx.letterSpacing = run.ls + 'px';
+    run.words.forEach(function(w) {
+      if (native || !run.ls) { ctx.fillText(w.t, w.x, w.base); return; }
+      var x = w.x;
+      for (var i = 0; i < w.t.length; i++) {
+        ctx.fillText(w.t[i], x, w.base);
+        x += ctx.measureText(w.t[i]).width + run.ls;
+      }
+    });
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function loadRunFonts(runs) {
+  if (!document.fonts || !document.fonts.load) return Promise.resolve();
+  return Promise.all(runs.map(function(r) {
+    return document.fonts.load(r.font, r.words.map(function(w) { return w.t; }).join(' ')).catch(function() {});
+  }));
+}
+
+function renderNative(original, scale) {
+  return getEmbeddedFontCss().then(function(fontCss) {
+    var W = original.offsetWidth, H = original.offsetHeight;
+    var runs = (original.id === 'card-wrapper') ? collectTextRuns(original) : [];
+    var clone = original.cloneNode(true);
+    clone.style.boxShadow = 'none';
+    return Promise.all(Array.prototype.map.call(clone.querySelectorAll('img'), shrinkImg)).then(function() {
     var outer = document.createElement('div');
     outer.style.cssText = 'display:flex;width:' + W + 'px;height:' + H + 'px;overflow:hidden;';
     var st = document.createElement('style');
     var pageCss = Array.prototype.map.call(document.querySelectorAll('style'), function(x) { return x.textContent; }).join('\n');
-    st.textContent = pageCss + '\n' + hideTextCss('*');
+    var hideCss = runs.length ? OVERLAY_SELECTORS.map(function(q) { return q + ',' + q + ' *'; }).join(',') + '{color:transparent !important;text-shadow:none !important;}' : '';
+    st.textContent = fontCss + '\n' + pageCss + '\n' + hideCss;
     outer.appendChild(st);
     outer.appendChild(clone);
     var xml = new XMLSerializer().serializeToString(outer);
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + (W * scale) + '" height="' + (H * scale) + '" viewBox="0 0 ' + W + ' ' + H + '">' +
-              '<foreignObject x="0" y="0" width="' + W + '" height="' + H + '">' + xml + '</foreignObject></svg>';
-    var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-    function once() {
-      return new Promise(function(res, rej) {
-        var img = new Image();
-        img.onload = function() {
-          try {
-            var canvas = document.createElement('canvas');
-            canvas.width = W * scale; canvas.height = H * scale;
-            var ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, W * scale, H * scale);
-            ctx.getImageData(0, 0, 1, 1);   // se il canvas è "contaminato" (Safari) lancia un errore
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
+              '<foreignObject x="0" y="0" width="100%" height="100%">' + xml + '</foreignObject></svg>';
+    return new Promise(function(res, rej) {
+      var img = new Image();
+      img.onload = function() {
+        try {
+          var canvas = document.createElement('canvas');
+          canvas.width = W * scale; canvas.height = H * scale;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, W * scale, H * scale);
+          loadRunFonts(runs).then(function() {
+            drawTextRuns(ctx, runs, scale);
             res(canvas);
-          } catch (e) { rej(e); }
-        };
-        img.onerror = function() { rej(new Error('rendering svg')); };
-        img.src = url;
-      });
-    }
-    // Safari/iOS: la prima volta le immagini dentro l'SVG possono non essere ancora pronte, quindi si ridisegna
-    return isWebKit() ? once().then(once) : once();
+          }, rej);
+        } catch (e) { rej(e); }
+      };
+      img.onerror = function() { rej(new Error('rendering svg')); };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    });
+    });
   });
-}
-
-// Livello base di riserva (html2canvas)
-function renderBaseHtml2Canvas(original, scale) {
-  if (typeof html2canvas !== 'function') return Promise.reject(new Error('html2canvas non disponibile'));
-  var clone = original.cloneNode(true);
-  clone.style.boxShadow = 'none';
-  var container = document.createElement('div');
-  container.id = 'export-tmp';
-  container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:' + original.offsetWidth + 'px;height:' + original.offsetHeight + 'px;overflow:visible;z-index:-1;pointer-events:none;';
-  var st = document.createElement('style');
-  st.textContent = hideTextCss('#export-tmp');
-  container.appendChild(st);
-  container.appendChild(clone);
-  document.body.appendChild(container);
-  return html2canvas(clone, { scale: scale, useCORS: true, allowTaint: true, backgroundColor: null, logging: false })
-    .then(function(c) { document.body.removeChild(container); return c; },
-          function(e) { document.body.removeChild(container); throw e; });
 }
 
 function shrinkImg(img) {
@@ -736,108 +870,6 @@ function shrinkImg(img) {
   });
 }
 
-function parseShadows(v) {
-  if (!v || v === 'none') return [];
-  var parts = [], depth = 0, cur = '';
-  for (var i = 0; i < v.length; i++) {
-    var ch = v.charAt(i);
-    if (ch === '(') depth++;
-    if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else { cur += ch; }
-  }
-  parts.push(cur);
-  return parts.map(function(p) {
-    p = p.trim();
-    var col = (p.match(/rgba?\([^)]*\)/) || ['#000'])[0];
-    var n = p.replace(/rgba?\([^)]*\)/, '').trim().split(/\s+/).map(parseFloat);
-    return { color: col, x: n[0] || 0, y: n[1] || 0, blur: n[2] || 0 };
-  });
-}
-
-function drawRun(ctx, str, x, y, shadows, scale) {
-  for (var i = shadows.length - 1; i >= 0; i--) {
-    var s = shadows[i];
-    ctx.shadowColor = s.color;
-    ctx.shadowOffsetX = s.x * scale; ctx.shadowOffsetY = s.y * scale; ctx.shadowBlur = s.blur * scale;
-    ctx.fillText(str, x, y);
-  }
-  ctx.shadowColor = 'rgba(0,0,0,0)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-  ctx.fillText(str, x, y);
-}
-
-// Scrive sul canvas tutto il testo visibile dentro "root", nelle stesse posizioni dell'anteprima
-function drawTextLayer(canvas, root, scale) {
-  var ctx = canvas.getContext('2d');
-  var rr = root.getBoundingClientRect();
-  var k = (rr.width / root.offsetWidth) || 1;      // l'anteprima può essere rimpicciolita su schermi stretti
-  var range = document.createRange();
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var node;
-  ctx.save();
-  ctx.scale(scale, scale);
-  ctx.textBaseline = 'alphabetic';
-  ctx.textAlign = 'left';
-  while ((node = walker.nextNode())) {
-    var txt = node.nodeValue;
-    var el = node.parentElement;
-    if (!el || !/\S/.test(txt)) continue;
-    var cs = getComputedStyle(el);
-    if (cs.visibility === 'hidden') continue;
-    var size = parseFloat(cs.fontSize);
-    var spacing = parseFloat(cs.letterSpacing) || 0;
-    var tt = cs.textTransform;
-
-    // posizione reale di ogni lettera nell'anteprima, raggruppata in parole
-    var words = [], cur = null;
-    for (var i = 0; i < txt.length; i++) {
-      var chr = txt.charAt(i);
-      if (/\s/.test(chr)) { cur = null; continue; }
-      range.setStart(node, i); range.setEnd(node, i + 1);
-      var r = range.getBoundingClientRect();
-      if (!r.width && !r.height) { cur = null; continue; }
-      if (cur && Math.abs(r.top - cur.top) > 2) cur = null;
-      if (!cur) { cur = { top: r.top, h: r.height, left: r.left, chars: [] }; words.push(cur); }
-      cur.chars.push({ c: chr, left: r.left });
-    }
-    if (!words.length) continue;
-
-    ctx.save();
-    var alpha = 1;
-    for (var p = el; p; p = p.parentElement) {
-      var pcs = getComputedStyle(p);
-      alpha *= parseFloat(pcs.opacity);
-      if (pcs.display !== 'inline' && (pcs.overflowX !== 'visible' || pcs.overflowY !== 'visible')) {
-        var pr = p.getBoundingClientRect();
-        ctx.beginPath();
-        ctx.rect((pr.left - rr.left) / k + p.clientLeft, (pr.top - rr.top) / k + p.clientTop, p.clientWidth, p.clientHeight);
-        ctx.clip();
-      }
-      if (p === root) break;
-    }
-    ctx.globalAlpha = alpha;
-    ctx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
-    ctx.fillStyle = cs.color;
-    var m = ctx.measureText('Hg');
-    var asc  = Math.round(m.fontBoundingBoxAscent  != null ? m.fontBoundingBoxAscent  : size * 0.8);
-    var desc = Math.round(m.fontBoundingBoxDescent != null ? m.fontBoundingBoxDescent : size * 0.2);
-    var shadows = parseShadows(cs.textShadow);
-    var tx = function(s) { return tt === 'uppercase' ? s.toUpperCase() : (tt === 'lowercase' ? s.toLowerCase() : s); };
-
-    words.forEach(function(w) {
-      var top = (w.top - rr.top) / k, h = w.h / k;
-      // stessa regola del browser: ascendente arrotondato + metà dello spazio di interlinea
-      var base = top + asc + Math.floor((h - (asc + desc)) / 2);
-      if (spacing !== 0) {
-        w.chars.forEach(function(c) { drawRun(ctx, tx(c.c), (c.left - rr.left) / k, base, shadows, scale); });
-      } else {
-        drawRun(ctx, tx(w.chars.map(function(c) { return c.c; }).join('')), (w.left - rr.left) / k, base, shadows, scale);
-      }
-    });
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
 function generateImage() {
   var btn     = document.getElementById('gen-btn');
   var loading = document.getElementById('loading');
@@ -846,18 +878,11 @@ function generateImage() {
   var cardName = document.getElementById('f-name').value || 'carta';
   var safe = cardName.replace(/[^a-zA-Z0-9À-ÿ\s]/g,'').trim().replace(/\s+/g,'_') || 'carta';
   var original = (cardType === 'back') ? document.getElementById('back-wrapper') : document.getElementById('card-wrapper');
-  function done() { loading.classList.remove('show'); btn.disabled = false; }
   centerCaps();
-  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function() {
-    return renderBaseNative(original, 4).catch(function(err) {
-      console.warn('Livello base nativo non riuscito, uso html2canvas:', err);
-      return renderBaseHtml2Canvas(original, 4);
-    });
-  }).then(function(canvas) {
-    drawTextLayer(canvas, original, 4);
+  renderNative(original, 4).then(function(canvas) {
     canvas.toBlob(function(blob) {
-      done();
-      if (!blob) { alert('Errore: impossibile creare l\'immagine.'); return; }
+      loading.classList.remove('show');
+      btn.disabled = false;
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
       a.href = url;
@@ -868,9 +893,9 @@ function generateImage() {
       setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
     }, 'image/png');
   }).catch(function(err) {
-    done();
-    console.error(err);
-    alert('Errore: ' + ((err && err.message) || err));
+    console.warn('Esportazione nativa non riuscita, uso il metodo di riserva:', err);
+    alert('Esportazione avanzata non riuscita (' + ((err && err.message) || err) + '). Uso il metodo di riserva: le scritte potrebbero risultare spostate.');
+    generateImageLegacy();
   });
 }
 
