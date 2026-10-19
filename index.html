@@ -107,8 +107,9 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .c-stat-label { font-family:'Cinzel',serif; font-size:7px; letter-spacing:1px; color:rgba(255,230,160,0.85); text-transform:uppercase; line-height:1; font-weight:700; }
 .c-stat-value { font-family:'IM Fell English',serif; font-size:21px; color:#fff; line-height:1.1; }
 .c-divider { flex-shrink:0; margin:5px 10px 0; display:flex; align-items:center; gap:5px; line-height:1; }
-.c-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(166,120,32,0.55),transparent); }
-.c-divider-text { font-family:'Cinzel',serif; font-weight:700; font-size:7.5px; letter-spacing:0.18em; color:#5a3a0a; white-space:nowrap; line-height:1; text-transform:uppercase; }
+.c-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(18,9,1,0.85)); }
+.c-divider-line:last-child { background:linear-gradient(270deg,transparent,rgba(18,9,1,0.85)); }
+.c-divider-text { font-family:'Cinzel',serif; font-weight:700; font-size:7.5px; letter-spacing:0.18em; color:#f5e2a8; background:rgba(18,9,1,0.88); padding:2px 7px; border-radius:2px; white-space:nowrap; line-height:1; text-transform:uppercase; }
 .c-divider-glyph { font-size:9px; color:#a67820; opacity:0.6; line-height:1; display:flex; align-items:center; }
 .c-spacer-bottom { flex:1; min-height:0; }
 .c-textbox { flex:none; height:150px; margin:4px 10px 0; padding:6px 8px; border:1px solid rgba(166,120,32,0.35); background:rgba(252,243,224,0.55); overflow:hidden; }
@@ -117,15 +118,11 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .ab:last-child { margin-bottom:0; }
 .ab+.ab { padding-top:5px; border-top:1px solid rgba(166,120,32,0.25); }
 .ab-name { font-style:italic; font-weight:700; }
-.c-footer { flex-shrink:0; height:16px; margin:0 10px; display:flex; align-items:center; justify-content:space-between; gap:8px; font-family:'Cinzel',serif; font-size:7.5px; letter-spacing:0.05em; color:#3a2204; line-height:1; white-space:nowrap; position:relative; z-index:2; }
+.c-footer { flex-shrink:0; height:16px; margin:0; display:flex; align-items:center; justify-content:space-between; gap:8px; font-family:'Cinzel',serif; font-size:7.5px; letter-spacing:0.05em; color:#f5e2a8; background:rgba(18,9,1,0.88); padding:0 12px; line-height:1; white-space:nowrap; position:relative; z-index:2; }
 .c-footer span { overflow:hidden; text-overflow:ellipsis; }
 .c-footer b { font-weight:700; }
 #p-author { text-align:left; }
 #p-illus { text-align:right; margin-left:auto; }
-.card.colpo .c-footer, .card.ambientazione .c-footer { color:#f5e2a8; background:rgba(18,9,1,0.88); margin:0; padding:0 12px; }
-.card.colpo .c-divider-text, .card.ambientazione .c-divider-text { color:#f5e2a8; background:rgba(18,9,1,0.88); padding:2px 7px; border-radius:2px; }
-.card.colpo .c-divider-line, .card.ambientazione .c-divider-line { background:linear-gradient(90deg,transparent,rgba(18,9,1,0.85)); }
-.card.colpo .c-divider-line:last-child, .card.ambientazione .c-divider-line:last-child { background:linear-gradient(270deg,transparent,rgba(18,9,1,0.85)); }
 .back-sub { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.5em; color:#8b6914; position:relative; z-index:1; text-transform:uppercase; margin-top:-4px; }
 
 .card.back {
