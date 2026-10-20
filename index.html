@@ -568,6 +568,7 @@ function update() {
   nameEl.textContent = document.getElementById('f-name').value || 'Nome della Carta';
   var costEl = document.getElementById('p-cost');
   costEl.style.fontSize = sizes.cost+'px';
+  costEl.style.lineHeight = Math.round(sizes.cost * 1.3) + 'px'; // riga intera: distanza uniforme
   costEl.innerHTML = ink(document.getElementById('f-cost').value);
   document.getElementById('p-off').textContent = document.getElementById('f-off').value || '—';
   document.getElementById('p-def').textContent = document.getElementById('f-def').value || '—';
@@ -762,6 +763,7 @@ function collectTextRuns(wrapper) {
   var wr = wrapper.getBoundingClientRect();
   var k = (wr.width / wrapper.offsetWidth) || 1;
   var runs = [];
+  runs.icons = [];
   OVERLAY_SELECTORS.forEach(function(sel) {
     var el = wrapper.querySelector(sel);
     if (!el) return;
@@ -783,6 +785,13 @@ function collectTextRuns(wrapper) {
       var top = (sel === '#p-name') ? Math.max(br.top, cardEl.top) : br.top;
       var bottom = (sel === '#p-name') ? br.bottom - k : br.bottom; // il filetto dorato sotto il titolo non fa parte dello spazio
       centerY = ((top + bottom) / 2 - wr.top) / k;
+    }
+    if (sel === '#p-cost') {
+      Array.prototype.forEach.call(el.children, function(c) {
+        if (c.tagName !== 'SPAN') return;
+        var ir = c.getBoundingClientRect();
+        runs.icons.push({ x: (ir.left - wr.left) / k, y: (ir.top - wr.top) / k, w: ir.width / k, h: ir.height / k });
+      });
     }
     var nodes = [], walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), n;
     while ((n = walker.nextNode())) { if (n.nodeValue.trim()) nodes.push(n); }
@@ -853,7 +862,18 @@ function drawTextRuns(ctx, runs, scale) {
     });
     ctx.restore();
   });
+  if (runs.inkImg) runs.icons.forEach(function(ic) { ctx.drawImage(runs.inkImg, ic.x, ic.y, ic.w, ic.h); });
   ctx.restore();
+}
+
+function loadInkImage(runs) {
+  if (!runs.icons || !runs.icons.length) return Promise.resolve();
+  return new Promise(function(res) {
+    var img = new Image();
+    img.onload = function() { runs.inkImg = img; res(); };
+    img.onerror = function() { res(); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(inkSVG().match(/<svg[\s\S]*<\/svg>/)[0]);
+  });
 }
 
 function loadRunFonts(runs) {
@@ -877,7 +897,7 @@ function renderNative(original, scale) {
     outer.style.cssText = 'display:flex;width:' + W + 'px;height:' + H + 'px;overflow:hidden;';
     var st = document.createElement('style');
     var pageCss = Array.prototype.map.call(document.querySelectorAll('style'), function(x) { return x.textContent; }).join('\n');
-    var hideCss = runs.length ? OVERLAY_SELECTORS.map(function(q) { return q + ',' + q + ' *'; }).join(',') + '{color:transparent !important;text-shadow:none !important;}' : '';
+    var hideCss = runs.length ? OVERLAY_SELECTORS.map(function(q) { return q + ',' + q + ' *'; }).join(',') + '{color:transparent !important;text-shadow:none !important;}#p-cost > span{visibility:hidden !important;}' : '';
     st.textContent = fontCss + '\n' + pageCss + '\n' + hideCss;
     outer.appendChild(st);
     outer.appendChild(clone);
@@ -892,7 +912,7 @@ function renderNative(original, scale) {
           canvas.width = W * scale; canvas.height = H * scale;
           var ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, W * scale, H * scale);
-          loadRunFonts(runs).then(function() {
+          Promise.all([loadRunFonts(runs), loadInkImage(runs)]).then(function() {
             drawTextRuns(ctx, runs, scale);
             res(canvas);
           }, rej);
