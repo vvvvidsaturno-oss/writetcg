@@ -789,7 +789,7 @@ function collectTextRuns(wrapper) {
     if (sel === '#p-cost') {
       Array.prototype.forEach.call(el.children, function(c) {
         if (c.tagName !== 'SPAN') return;
-        var ir = c.getBoundingClientRect();
+        var ir = (c.firstElementChild || c).getBoundingClientRect(); // il disegno vero della goccia
         runs.icons.push({ x: (ir.left - wr.left) / k, y: (ir.top - wr.top) / k, w: ir.width / k, h: ir.height / k });
       });
     }
@@ -862,7 +862,11 @@ function drawTextRuns(ctx, runs, scale) {
     });
     ctx.restore();
   });
-  if (runs.inkImg) runs.icons.forEach(function(ic) { ctx.drawImage(runs.inkImg, ic.x, ic.y, ic.w, ic.h); });
+  if (runs.inkImg) runs.icons.forEach(function(ic) {
+    // stesse regole dell'anteprima: la goccia sta tutta dentro il riquadro, senza deformarsi, centrata
+    var sc = Math.min(ic.w / 100, ic.h / 130), dw = 100 * sc, dh = 130 * sc;
+    ctx.drawImage(runs.inkImg, ic.x + (ic.w - dw) / 2, ic.y + (ic.h - dh) / 2, dw, dh);
+  });
   ctx.restore();
 }
 
@@ -872,7 +876,9 @@ function loadInkImage(runs) {
     var img = new Image();
     img.onload = function() { runs.inkImg = img; res(); };
     img.onerror = function() { res(); };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(inkSVG().match(/<svg[\s\S]*<\/svg>/)[0]);
+    // dimensioni esplicite: la goccia ha sempre le sue proporzioni (100x130)
+    var svgTxt = inkSVG().match(/<svg[\s\S]*<\/svg>/)[0].replace('<svg ', '<svg width="100" height="130" ');
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgTxt);
   });
 }
 
