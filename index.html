@@ -586,6 +586,7 @@ function update() {
   fillCredit('p-illus', 'Illustratore', il);
   var tb = document.getElementById('p-textbox');
   tb.style.fontSize = sizes.abil+'px';
+  tb.style.lineHeight = Math.round(sizes.abil * 1.55) + 'px'; // altezza riga intera: niente righe più larghe/strette per l'arrotondamento
   tb.innerHTML = '';
   if (abilities.length === 0) {
     tb.innerHTML = '<div class="ab" style="opacity:0.3;font-style:italic;">Testo abilità...</div>';
