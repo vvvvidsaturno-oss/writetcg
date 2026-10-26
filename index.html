@@ -79,7 +79,7 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .card.colpo .c-textbox { position:relative; z-index:2; background:rgba(252,243,224,0.93); }
 .card.colpo .c-fullart { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; height:100%; object-fit:cover; z-index:0; min-width:100%; min-height:100%; }
 .card.colpo::before { display:none; }
-.card.colpo .c-header { position:relative; z-index:2; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:36px; margin-top:-2px; padding-top:2px; }
+.card.colpo .c-header { position:relative; z-index:2; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:32px; margin-top:-2px; padding-top:2px; }
 
 .card.ambientazione { background:#1a0d03; }
 .card.ambientazione .c-image { background:transparent; border-color:transparent; }
@@ -90,35 +90,35 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
 .card.ambientazione .c-textbox { position:relative; z-index:2; background:rgba(252,243,224,0.93); }
 .card.ambientazione .c-fullart { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; height:100%; object-fit:cover; z-index:0; min-width:100%; min-height:100%; }
 .card.ambientazione::before { display:none; }
-.card.ambientazione .c-header { position:relative; z-index:2; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:36px; margin-top:-2px; padding-top:2px; }
+.card.ambientazione .c-header { position:relative; z-index:2; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:32px; margin-top:-2px; padding-top:2px; }
 
-.c-header { flex-shrink:0; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:36px; margin-top:-2px; padding-top:2px; display:flex; align-items:center; justify-content:center; padding-left:11px; padding-right:11px; overflow:hidden; }
+.c-header { flex-shrink:0; background:linear-gradient(180deg,#120901,#1a0d03); border-bottom:1px solid #a67820; height:32px; margin-top:-2px; padding-top:2px; display:flex; align-items:center; justify-content:center; padding-left:11px; padding-right:11px; overflow:hidden; }
 #p-name { padding-left:0.07em; font-family:'Cinzel',serif; font-weight:600; color:#e8d090; letter-spacing:0.07em; text-align:center; white-space:nowrap; line-height:1; }
-.c-image { flex-shrink:0; margin:7px 10px 0; height:213px; overflow:hidden; background:#2c1a08; border:1px solid #a67820; position:relative; }
+.c-image { flex-shrink:0; margin:9px 9px 0; height:217px; overflow:hidden; background:#2c1a08; border:1px solid #a67820; position:relative; }
 .c-image img { width:100%; height:100%; object-fit:cover; display:block; position:absolute; top:50%; left:50%; transform-origin:center center; }
 .c-image { position:relative; overflow:hidden; }
 #img-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#a67820; font-family:'IM Fell English',serif; font-style:italic; font-size:11px; opacity:0.5; letter-spacing:3px; }
-.c-mid { flex-shrink:0; margin:6px 10px 0; height:50px; display:flex; gap:6px; align-items:stretch; }
-.c-cost { flex:1; border:1px solid rgba(166,120,32,0.6); background:linear-gradient(160deg,rgba(220,195,148,0.9),rgba(195,163,108,0.9)); padding:0 8px; min-width:0; width:0; display:flex; align-items:center; justify-content:center; }
+.c-mid { flex-shrink:0; margin:9px 9px 0; height:50px; display:flex; gap:3px; align-items:stretch; }
+.c-cost { flex:1; border:1px solid rgba(166,120,32,0.6); background:linear-gradient(160deg,rgba(220,195,148,0.9),rgba(195,163,108,0.9)); padding:0 6px; min-width:0; width:0; display:flex; align-items:center; justify-content:center; }
 #p-cost { color:#150800; font-family:'Crimson Text',serif; font-weight:600; line-height:1.15; text-align:center; max-width:100%; overflow-wrap:anywhere; }
 .c-stat { flex-shrink:0; width:32px; border:1px solid rgba(166,120,32,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .c-stat.off { background:linear-gradient(170deg,#a82020,#5e0e0e); }
 .c-stat.def { background:linear-gradient(170deg,#173e7a,#081830); }
 .c-stat-label { font-family:'Cinzel',serif; font-size:7px; letter-spacing:1px; color:rgba(255,230,160,0.85); text-transform:uppercase; line-height:1; font-weight:700; }
 .c-stat-value { font-family:'Crimson Text',serif; font-size:21px; color:#fff; line-height:1.1; }
-.c-divider { flex-shrink:0; margin:5px 10px 0; display:flex; align-items:center; gap:5px; line-height:1; }
+.c-divider { flex-shrink:0; margin:3px 9px 0; display:flex; align-items:center; gap:5px; line-height:1; }
 .c-divider-line { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(18,9,1,0.85)); }
 .c-divider-line:last-child { background:linear-gradient(270deg,transparent,rgba(18,9,1,0.85)); }
 .c-divider-text { display:block; height:12px; line-height:12px; padding:0 calc(7px - 0.04em) 0 7px; font-family:'Cinzel',serif; font-weight:700; font-size:8.5px; letter-spacing:0.04em; color:#fff3cf; background:rgba(18,9,1,0.88); border-radius:2px; white-space:nowrap; }
 .c-divider-text b { font-weight:700; color:#e6bd55; }
 .c-divider-glyph { font-size:9px; color:#a67820; opacity:0.6; line-height:1; display:flex; align-items:center; }
 .c-spacer-bottom { flex:1; min-height:0; }
-.c-textbox { flex:none; height:150px; margin:4px 10px 0; padding:6px 8px; border:1px solid rgba(166,120,32,0.35); background:rgba(252,243,224,0.55); overflow:hidden; }
+.c-textbox { flex:none; height:150px; margin:3px 9px 0; padding:6px 6px 0; border:1px solid rgba(166,120,32,0.35); background:rgba(252,243,224,0.55); overflow:hidden; }
 .num { font-family:'Crimson Text',serif; font-style:normal; font-weight:600; line-height:0; }
 #p-textbox { font-family:'IM Fell English',serif; color:#1c0f04; line-height:1.30; }
-.ab { margin-bottom:5px; }
+.ab { margin-bottom:4px; }
 .ab:last-child { margin-bottom:0; }
-.ab+.ab { padding-top:5px; border-top:1px solid rgba(166,120,32,0.25); }
+.ab+.ab { padding-top:4px; border-top:1px solid rgba(166,120,32,0.25); }
 .ab-name { font-style:italic; font-weight:700; }
 .ab-name .num { font-style:italic; font-weight:700; } /* nel nome: stesso corsivo grassetto del nome */
 .c-footer { flex-shrink:0; height:16px; margin:0; padding:0 12px; display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:2; background:rgba(18,9,1,0.88); font-family:'Cinzel',serif; font-weight:700; font-size:8.5px; letter-spacing:0.04em; color:#fff3cf; line-height:12px; white-space:nowrap; overflow:hidden; }
@@ -249,9 +249,9 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
       <input type="text" id="f-name" placeholder="es. Robot Cacciatore..." oninput="update()">
       <div class="size-row">
         <span class="lbl">Taglia</span>
-        <button class="size-btn" onclick="adj('name',-0.5)">−</button>
+        <button class="size-btn" onclick="adj('name',-1)">−</button>
         <div class="size-val" id="v-name">12px</div>
-        <button class="size-btn" onclick="adj('name',+0.5)">+</button>
+        <button class="size-btn" onclick="adj('name',+1)">+</button>
       </div>
     </div>
 
@@ -279,9 +279,9 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
       <div class="hint">Scrivi [INK] per la goccia d'inchiostro</div>
       <div class="size-row">
         <span class="lbl">Taglia</span>
-        <button class="size-btn" onclick="adj('cost',-0.5)">−</button>
+        <button class="size-btn" onclick="adj('cost',-1)">−</button>
         <div class="size-val" id="v-cost">9px</div>
-        <button class="size-btn" onclick="adj('cost',+0.5)">+</button>
+        <button class="size-btn" onclick="adj('cost',+1)">+</button>
       </div>
     </div>
 
@@ -294,9 +294,9 @@ h1 { font-family:'Cinzel',serif; font-size:11px; letter-spacing:6px; color:#5a3e
       <div class="panel-title" style="margin-bottom:8px;">Abilità</div>
       <div class="size-row" style="margin-bottom:10px;">
         <span class="lbl">Taglia testo</span>
-        <button class="size-btn" onclick="adj('abil',-0.5)">−</button>
-        <div class="size-val" id="v-abil">10px</div>
-        <button class="size-btn" onclick="adj('abil',+0.5)">+</button>
+        <button class="size-btn" onclick="adj('abil',-1)">−</button>
+        <div class="size-val" id="v-abil">9px</div>
+        <button class="size-btn" onclick="adj('abil',+1)">+</button>
       </div>
       <div id="ability-list" style="display:flex;flex-direction:column;gap:8px;"></div>
       <button class="add-btn" onclick="addAbility()" style="margin-top:8px;">+ Aggiungi Abilità</button>
@@ -406,7 +406,7 @@ var cardType = 'p';
 var abilities = [];
 var abilCounter = 0;
 var loadedImageDataUrl = null;
-var sizes = { name:12, cost:9, abil:10 };
+var sizes = { name:12, cost:9, abil:9 };
 var art = { x:0, y:0, scale:1.0 };
 
 // ── PWA Install ──
@@ -475,7 +475,7 @@ function applyArtTransform() {
   });
 }
 function adj(key, delta) {
-  sizes[key] = Math.round(Math.max(0.5, Math.min(30, sizes[key] + delta)) * 10) / 10;
+  sizes[key] = Math.round(Math.max(1, Math.min(30, sizes[key] + delta)) * 10) / 10;
   update();
 }
 function inkSVG() {
@@ -615,6 +615,7 @@ function update() {
     node.parentNode.replaceChild(frag, node);
   });
   centerName();
+  centerCaps();
 }
 
 function generateImageLegacy() {
@@ -695,8 +696,10 @@ function centerCaps() {
   var ctx = document.createElement('canvas').getContext('2d');
   // [selettore, altezza della fascia in cui il testo va centrato]
   [['.c-divider-text', 12], ['.c-footer span', 16]].forEach(function(t) {
+    var shared = null; // stesso spostamento per tutti gli elementi del gruppo (Autore e Illustratore sempre alla stessa altezza)
     document.querySelectorAll(t[0]).forEach(function(el) {
       if (!el.offsetHeight) return; // nascosto (es. retro della carta)
+      if (shared !== null) { el.style.paddingTop = shared + 'px'; return; }
       var cs = getComputedStyle(el);
       var fs = parseFloat(cs.fontSize);
       // altezza delle maiuscole del font reale
@@ -712,8 +715,8 @@ function centerCaps() {
       var base = (probe.getBoundingClientRect().bottom - el.getBoundingClientRect().top) / k;
       el.removeChild(probe);
       // le maiuscole occupano da (base - capH) a base: porto il loro centro a metà fascia
-      var pad = Math.round(t[1] / 2 - (base - capH / 2));
-      if (isFinite(pad)) el.style.paddingTop = Math.max(0, pad) + 'px';
+      var pad = Math.round((t[1] / 2 - (base - capH / 2)) * 4) / 4;
+      if (isFinite(pad)) { pad = Math.max(0, pad); el.style.paddingTop = pad + 'px'; shared = pad; }
     });
   });
 }
