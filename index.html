@@ -775,7 +775,7 @@ function getEmbeddedFontCss() {
 
 // ── Testi dell'esportazione: posizioni lette dall'anteprima e disegnate sul canvas ──
 // (così non dipendono da come il browser calcola la linea di base dentro l'SVG)
-var OVERLAY_SELECTORS = []; // vuoto: tutte le scritte le disegna il browser nell'SVG, niente più testo sul canvas
+var OVERLAY_SELECTORS = ['#p-name', '#p-cost', '.c-divider-text', '#p-author', '#p-illus'];
 
 function collectTextRuns(wrapper) {
   var wr = wrapper.getBoundingClientRect();
@@ -910,12 +910,63 @@ function loadRunFonts(runs) {
   }));
 }
 
+// ── Testo abilità: gli a capo li decide l'anteprima e vengono imposti uguali nell'immagine ──
+function abilityAtoms(box) {
+  var atoms = [];
+  var w = document.createTreeWalker(box, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: function(n) {
+      if (n.nodeType === 3) return n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      return (n.tagName === 'SPAN' && n.style.display === 'inline-block') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP; // la goccia d'inchiostro
+    }
+  });
+  var n;
+  while ((n = w.nextNode())) {
+    if (n.nodeType === 1) { atoms.push({ el: n }); continue; }
+    var re = /\S+/g, m;
+    while ((m = re.exec(n.nodeValue))) atoms.push({ node: n, start: m.index, len: m[0].length });
+  }
+  return atoms;
+}
+
+function freezeAbilityLines(original, clone) {
+  var ob = original.querySelector('#p-textbox'), cb = clone.querySelector('#p-textbox');
+  if (!ob || !cb) return;
+  var oa = abilityAtoms(ob), ca = abilityAtoms(cb);
+  if (!oa.length || oa.length !== ca.length) return;
+  var k = (original.getBoundingClientRect().width / original.offsetWidth) || 1;
+  var limit = (parseFloat(getComputedStyle(ob).lineHeight) || 18) * k * 0.5;
+  var prevC = null, prevBlock = null;
+  oa.forEach(function(a) {
+    var r;
+    if (a.el) r = a.el.getBoundingClientRect();
+    else {
+      var rg = document.createRange();
+      rg.setStart(a.node, a.start); rg.setEnd(a.node, a.start + a.len);
+      r = rg.getClientRects()[0];
+    }
+    var block = (a.el || a.node.parentElement).closest('.ab');
+    if (!r) return;
+    var c = (r.top + r.bottom) / 2;
+    // nuova riga = il centro si sposta di più di mezza riga (la prima parola di ogni abilità è già a inizio riga)
+    a.brk = (block === prevBlock && prevC !== null && Math.abs(c - prevC) > limit);
+    prevC = c; prevBlock = block;
+  });
+  for (var i = oa.length - 1; i >= 0; i--) {
+    if (!oa[i].brk) continue;
+    var br = document.createElement('br');
+    if (ca[i].el) ca[i].el.parentNode.insertBefore(br, ca[i].el);
+    else { var tail = ca[i].node.splitText(ca[i].start); tail.parentNode.insertBefore(br, tail); }
+  }
+  cb.style.whiteSpace = 'nowrap'; // il browser non può più andare a capo da solo
+}
+
 function renderNative(original, scale) {
   return getEmbeddedFontCss().then(function(fontCss) {
     var W = original.offsetWidth, H = original.offsetHeight;
     var runs = (original.id === 'card-wrapper') ? collectTextRuns(original) : [];
     var clone = original.cloneNode(true);
     clone.style.boxShadow = 'none';
+    freezeAbilityLines(original, clone);
     return Promise.all(Array.prototype.map.call(clone.querySelectorAll('img'), shrinkImg)).then(function() {
     var outer = document.createElement('div');
     outer.style.cssText = 'display:flex;width:' + W + 'px;height:' + H + 'px;overflow:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%;';
