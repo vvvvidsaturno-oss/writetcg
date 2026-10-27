@@ -775,7 +775,7 @@ function getEmbeddedFontCss() {
 
 // ── Testi dell'esportazione: posizioni lette dall'anteprima e disegnate sul canvas ──
 // (così non dipendono da come il browser calcola la linea di base dentro l'SVG)
-var OVERLAY_SELECTORS = ['#p-name', '#p-cost', '.c-divider-text', '#p-author', '#p-illus'];
+var OVERLAY_SELECTORS = []; // vuoto: tutte le scritte le disegna il browser nell'SVG, niente più testo sul canvas
 
 function collectTextRuns(wrapper) {
   var wr = wrapper.getBoundingClientRect();
